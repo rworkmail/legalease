@@ -10,13 +10,10 @@ from lexnlp.extract.en.definitions import get_definitions
 from lexnlp.extract.en.conditions import get_conditions
 from lexnlp.extract.en.constraints import get_constraints
 from lexnlp.extract.en.citations import get_citations
-from lexnlp.extract.en.entities.nltk_maxent import (
-    get_person_entities,
-    get_location_entities
-)
 from lexnlp.extract.en.obligations import get_obligations
 from lexnlp.extract.en.segments.headers import get_section_headers
 
+# Required for lexnlp + nltk
 nltk.download("punkt")
 nltk.download("averaged_perceptron_tagger")
 nltk.download("maxent_ne_chunker")
@@ -30,7 +27,6 @@ class TextInput(BaseModel):
 @app.post("/analyze")
 def analyze_contract(data: TextInput):
     text = data.text
-
     return {
         "money": [str(m) for m in get_money(text)],
         "dates": [str(d) for d in get_dates(text)],
@@ -40,8 +36,6 @@ def analyze_contract(data: TextInput):
         "conditions": list(get_conditions(text)),
         "constraints": list(get_constraints(text)),
         "citations": list(get_citations(text)),
-        "locations": list(get_location_entities(text)),
-        "persons": list(get_person_entities(text)),
         "obligations": list(get_obligations(text)),
         "sections": list(get_section_headers(text)),
     }
