@@ -2,5 +2,3 @@ fastapi==0.95.1
 uvicorn==0.22.0
 lexnlp==2.3.0
 nltk==3.9.1
-# REMOVE gensim constraint
-# gensim>=4.2.0,<4.4 ← this causes conflict
