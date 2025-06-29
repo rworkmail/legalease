@@ -1,11 +1,14 @@
+# Core scientific stack — in correct order
 numpy==1.24.4
-cython
-setuptools
+cython==3.0.0
+setuptools==65.5.1
 
-fastapi
-uvicorn
-nltk
+# NLP & API stack
+fastapi==0.95.2
+uvicorn==0.22.0
+nltk==3.8.1
 spacy==3.5.4
 lexnlp==2.3.0
 
+# Explicitly install spaCy model
 en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.5.0/en_core_web_sm-3.5.0-py3-none-any.whl
