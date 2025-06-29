@@ -2,8 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import nltk
 
-# LexNLP imports
-from lexnlp.extract.en.clause_types import get_clause_types
+# LexNLP imports (excluding deprecated/removed modules)
 from lexnlp.extract.en.money import get_money
 from lexnlp.extract.en.dates import get_dates
 from lexnlp.extract.en.percents import get_percents
@@ -34,7 +33,7 @@ def analyze_contract(data: TextInput):
     text = data.text
 
     return {
-        "clauses": list(get_clause_types(text)),
+        # Removed: "clauses": list(get_clause_types(text))
         "money": [str(m) for m in get_money(text)],
         "dates": [str(d) for d in get_dates(text)],
         "percents": [str(p) for p in get_percents(text)],
