@@ -2,18 +2,17 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import nltk
 
-# LexNLP imports (excluding deprecated/removed modules)
+# LexNLP imports (only valid in v2.3.0)
 from lexnlp.extract.en.money import get_money
 from lexnlp.extract.en.dates import get_dates
 from lexnlp.extract.en.percents import get_percents
 from lexnlp.extract.en.durations import get_durations
 from lexnlp.extract.en.definitions import get_definitions
-from lexnlp.extract.en.locations import get_locations
 from lexnlp.extract.en.conditions import get_conditions
 from lexnlp.extract.en.constraints import get_constraints
 from lexnlp.extract.en.citations import get_citations
 from lexnlp.extract.en.references import get_references
-from lexnlp.extract.en.entities.nltk_maxent import get_person_entities
+from lexnlp.extract.en.entities.nltk_maxent import get_person_entities, get_location_entities
 from lexnlp.extract.en.obligations import get_obligations
 from lexnlp.extract.en.segments.headers import get_section_headers
 
@@ -33,13 +32,12 @@ def analyze_contract(data: TextInput):
     text = data.text
 
     return {
-        # Removed: "clauses": list(get_clause_types(text))
         "money": [str(m) for m in get_money(text)],
         "dates": [str(d) for d in get_dates(text)],
         "percents": [str(p) for p in get_percents(text)],
         "durations": [str(d) for d in get_durations(text)],
         "definitions": list(get_definitions(text)),
-        "locations": list(get_locations(text)),
+        "locations": list(get_location_entities(text)),  # ✅ fixed
         "conditions": list(get_conditions(text)),
         "constraints": list(get_constraints(text)),
         "citations": list(get_citations(text)),
