@@ -12,6 +12,9 @@ from lexnlp.extract.en.definitions import get_definitions
 from lexnlp.extract.en.conditions import get_conditions
 from lexnlp.extract.en.constraints import get_constraints
 from lexnlp.extract.en.citations import get_citations
+import spacy.cli
+spacy.cli.download("en_core_web_sm")
+
 
 nltk.download("punkt")
 nltk.download("averaged_perceptron_tagger")
