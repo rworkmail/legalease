@@ -13,16 +13,15 @@ ADDRESS_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-# Utility
+# Utility functions
 def clean_money(text: str) -> str:
     return text.rstrip(",. ").replace(",", "")
 
 def extract_money_regex(text: str):
-    return list({clean_money(m.group()) for m in MONEY_REGEX.finditer(text)})
+    return [clean_money(m.group()) for m in MONEY_REGEX.finditer(text)]
 
 def extract_durations_regex(text: str):
-    durations = [d.group().strip("., ") for d in DURATION_REGEX.finditer(text)]
-    return list(dict.fromkeys(durations))  # Remove duplicates, preserve order
+    return [d.group().strip("., ") for d in DURATION_REGEX.finditer(text)]
 
 def extract_parties_spacy(text: str):
     doc = nlp(text)
@@ -38,60 +37,69 @@ def extract_recurring_payments(text: str):
     return [m.group().lower() for m in RECURRING_PATTERN.finditer(text)]
 
 def extract_late_fee(text: str):
-    return list({m.strip() for m in LATE_FEE_PATTERN.findall(text)})
+    return [m.strip() for m in LATE_FEE_PATTERN.findall(text)]
+
+def clean_late_fee(fees):
+    return [
+        re.sub(r"(?i)(late fee|penalty)( of)?( late fee( of)?)*", "", fee).strip(",. ")
+        for fee in fees
+    ]
 
 def extract_property_address(text: str):
-    return list({m.strip() for m in ADDRESS_PATTERN.findall(text)})
+    return [m.strip() for m in ADDRESS_PATTERN.findall(text)]
 
-def quote(value: str) -> str:
-    return f'"{value}"'
+def find_start_date(text: str, dates: list) -> str:
+    for date in dates:
+        if any(k in text.lower() for k in ["start", "commence", "commencing"]) and re.search(date, text):
+            return date
+    return dates[0] if dates else ""
 
-def generate_summary(data: dict) -> str:
-    parties = [quote(p) for p in data.get("parties", [])]
+def find_end_date(text: str, dates: list) -> str:
+    for date in reversed(dates):
+        if any(k in text.lower() for k in ["end", "terminate", "expiration", "expires"]) and re.search(date, text):
+            return date
+    return dates[-1] if dates else ""
+
+def generate_summary(data: dict, text: str) -> str:
+    parties = data["parties"]
     address = data.get("property_address", [])
-    start_date = next((d for d in data.get("dates", []) if re.search(r"\d{4}-\d{2}-\d{2}", d)), None)
+    start_date = find_start_date(text, data.get("dates", []))
+    end_date = find_end_date(text, data.get("dates", []))
     duration = ", ".join(data.get("duration", []))
-    amount = next((m for m in data["payment_terms"].get("money", []) if m.strip("$").replace('.', '').isdigit()), None)
-    late_fee = next(iter(data.get("late_payment_penalty", [])), "")
+    amount = next((m for m in data["payment_terms"].get("money", []) if m.strip("$").isdigit()), None)
+    late_fee = ", ".join(clean_late_fee(data.get("late_payment_penalty", [])))
 
-    parts = []
-    if parties:
-        parts.append(f"This contract is between {', and '.join(parties)}")
-    if address:
-        parts.append(f"regarding the property at {address[0]}")
-    if start_date:
-        parts.append(f"starting on {start_date}")
-    if duration:
-        parts.append(f"lasting for {duration}")
-    if amount:
-        parts.append(f"with a payment of {quote(amount)}")
-    if late_fee:
-        clean_late_fee = re.sub(r"^(late fee of|penalty of)?\s*", "", late_fee, flags=re.IGNORECASE)
-        parts.append(f"and a late fee of {quote(clean_late_fee)}")
-
-    return ", ".join(parts).strip(", ")
+    summary_parts = [
+        f"This contract is between {', and '.join(parties)}" if parties else "",
+        f"regarding the property at {address[0]}" if address else "",
+        f"starting on {start_date}" if start_date else "",
+        f"ending on {end_date}" if end_date else "",
+        f"lasting for {duration}" if duration else "",
+        f"with a payment of {amount}" if amount else "",
+        f"and a late fee of {late_fee}" if late_fee else ""
+    ]
+    return ", ".join(part for part in summary_parts if part).strip(", ")
 
 def enhance_extraction(original: dict, text: str) -> dict:
     enhanced = original.copy()
+    extracted = enhanced["extracted_data"]
 
-    enhanced["extracted_data"]["payment_terms"]["money"] = extract_money_regex(text)
-    enhanced["extracted_data"]["duration"] = extract_durations_regex(text)
+    extracted["payment_terms"]["money"] = extract_money_regex(text)
+    extracted["duration"] = extract_durations_regex(text)
 
-    if not enhanced["extracted_data"]["parties"]:
-        enhanced["extracted_data"]["parties"] = extract_parties_spacy(text)
+    if not extracted["parties"]:
+        extracted["parties"] = extract_parties_spacy(text)
 
     for recur in extract_recurring_payments(text):
-        enhanced["extracted_data"]["constraints"].append(["recurring", recur, ""])
+        extracted["constraints"].append(["recurring", recur, ""])
 
     late_fees = extract_late_fee(text)
     if late_fees:
-        enhanced["extracted_data"]["late_payment_penalty"] = late_fees
+        extracted["late_payment_penalty"] = late_fees
 
-    property_addrs = extract_property_address(text)
-    if property_addrs:
-        enhanced["extracted_data"]["property_address"] = property_addrs
+    addresses = extract_property_address(text)
+    if addresses:
+        extracted["property_address"] = addresses
 
-    # Add contract summary
-    enhanced["summary"] = generate_summary(enhanced["extracted_data"])
-
+    enhanced["summary"] = generate_summary(extracted, text)
     return enhanced
