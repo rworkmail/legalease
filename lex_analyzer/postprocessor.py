@@ -90,7 +90,7 @@ def generate_summary(data: dict, text: str) -> str:
         f"ending on {end_date}" if end_date else "",
         f"lasting for {duration}" if duration else "",
         f"with a payment of {amount}" if amount else "",
-        f"and a late fee of {late_fee}" if late_fee else ""
+        f"and a {late_fee}" if late_fee else ""
     ]
     return ", ".join(part for part in summary_parts if part).strip(", ")
 
