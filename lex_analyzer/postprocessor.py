@@ -7,8 +7,12 @@ nlp = spacy.load("en_core_web_sm")
 MONEY_REGEX = re.compile(r"\$[\d,]+(?:\.\d{2})?")
 DURATION_REGEX = re.compile(r"\b(?:\d+|\w+)\s+(?:days?|weeks?|months?|years?|business days?)\b", re.IGNORECASE)
 RECURRING_PATTERN = re.compile(r"\b(?:monthly|annually|weekly|biweekly|quarterly)\b", re.IGNORECASE)
+LATE_FEE_PATTERN = re.compile(r"(?:late fee|penalty).*?\$[\d,]+(?:\.\d{2})?", re.IGNORECASE)
+ADDRESS_PATTERN = re.compile(
+    r"(\d+\s+[^,\n]+(?:Street|Avenue|Road|Lane|Drive|Boulevard|St\.?|Ave\.?|Rd\.?|Blvd\.?|Dr\.?))",
+    re.IGNORECASE
+)
 
-# Utility functions
 def clean_money(text: str) -> str:
     return text.rstrip(",. ").replace(",", "")
 
@@ -32,6 +36,12 @@ def extract_parties_spacy(text: str):
 def extract_recurring_payments(text: str):
     return [match.group().lower() for match in RECURRING_PATTERN.finditer(text)]
 
+def extract_late_fee(text: str):
+    return [match.strip() for match in LATE_FEE_PATTERN.findall(text)]
+
+def extract_property_address(text: str):
+    return [match.strip() for match in ADDRESS_PATTERN.findall(text)]
+
 def enhance_extraction(original: dict, text: str) -> dict:
     enhanced = original.copy()
 
@@ -44,8 +54,17 @@ def enhance_extraction(original: dict, text: str) -> dict:
         enhanced["extracted_data"]["parties"] = extract_parties_spacy(text)
 
     # Add recurring constraint
-    recurring = extract_recurring_payments(text)
-    for recur in recurring:
+    for recur in extract_recurring_payments(text):
         enhanced["extracted_data"]["constraints"].append(["recurring", recur, ""])
+
+    # Add late payment penalty
+    late_fees = extract_late_fee(text)
+    if late_fees:
+        enhanced["extracted_data"]["late_payment_penalty"] = late_fees
+
+    # Add property address
+    property_addrs = extract_property_address(text)
+    if property_addrs:
+        enhanced["extracted_data"]["property_address"] = property_addrs
 
     return enhanced
