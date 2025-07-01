@@ -42,11 +42,14 @@ def extract_late_fee(text: str):
 def clean_late_fee(fees):
     cleaned = []
     for fee in fees:
-        stripped = re.sub(r"(?i)(late fee|penalty)( of)?( late fee( of)?)*", "", fee)
-        amount = re.search(r"\$[\d,]+(?:\.\d{2})?", stripped)
+        fee = fee.lower()
+        # Remove all occurrences of 'late fee' and 'penalty' phrases
+        fee = re.sub(r"(late fee|penalty)( of)?", "", fee, flags=re.IGNORECASE)
+        amount = re.search(r"\$[\d,]+(?:\.\d{2})?", fee)
         if amount:
             cleaned.append(amount.group())
     return cleaned
+
 
 def extract_property_address(text: str):
     return [m.strip() for m in ADDRESS_PATTERN.findall(text)]
@@ -78,6 +81,7 @@ def generate_summary(data: dict, text: str) -> str:
 
     amount = next((m for m in data["payment_terms"].get("money", []) if m.strip("$").isdigit()), None)
     late_fee = ", ".join(clean_late_fee(data.get("late_payment_penalty", [])))
+
 
     summary_parts = [
         f"This contract is between {', and '.join(parties)}" if parties else "",
