@@ -5,15 +5,19 @@ nlp = spacy.load("en_core_web_sm")
 
 # Regex patterns
 MONEY_REGEX = re.compile(r"\$[\d,]+(?:\.\d{2})?")
-DURATION_REGEX = re.compile(r"\b(?:\d+|\w+)\s+(?:days?|weeks?|months?|years?|business days?)\b", re.IGNORECASE)
+DURATION_REGEX = re.compile(
+    r"\b(?:(?!per\s)(\d+|\w+)\s+(days?|weeks?|months?|years?|business days?))\b",
+    re.IGNORECASE,
+)
 RECURRING_PATTERN = re.compile(r"\b(monthly|annually|weekly|biweekly|quarterly)\b", re.IGNORECASE)
-LATE_FEE_PATTERN = re.compile(r"(?:late fee|penalty)[^$]{0,20}\$[\d,]+(?:\.\d{2})?", re.IGNORECASE)
+LATE_FEE_PATTERN = re.compile(r"(late fee|penalty).*?\$[\d,]+(?:\.\d{2})?", re.IGNORECASE)
 ADDRESS_PATTERN = re.compile(
     r"\b\d{1,5}\s+[\w\s]{2,50}?\s(?:Street|Avenue|Road|Lane|Drive|Boulevard|St\.?|Ave\.?|Rd\.?|Blvd\.?|Dr\.?)\b",
     re.IGNORECASE
 )
+AFTER_PATTERN = re.compile(r"\bafter\s+(\d+\s+(?:days?|business days?))\b", re.IGNORECASE)
 
-# Utility Functions
+# Utility functions
 def clean_money(text: str) -> str:
     return text.rstrip(",. ").replace(",", "")
 
@@ -48,6 +52,9 @@ def clean_late_fee(fees):
 def extract_property_address(text: str):
     return [m.strip() for m in ADDRESS_PATTERN.findall(text)]
 
+def extract_after_constraints(text: str):
+    return [("after", m.group(1), "") for m in AFTER_PATTERN.finditer(text)]
+
 def find_start_date(text: str, dates: list) -> str:
     for date in dates:
         if any(k in text.lower() for k in ["start", "commence", "commencing"]) and re.search(date, text):
@@ -65,14 +72,9 @@ def generate_summary(data: dict, text: str) -> str:
     address = data.get("property_address", [])
     start_date = find_start_date(text, data.get("dates", []))
     end_date = find_end_date(text, data.get("dates", []))
-    
-    # Filter out noisy durations
-    raw_durations = data.get("duration", [])
-    duration = next((d for d in raw_durations if re.search(r"\b\d+\s+months?\b", d, re.IGNORECASE)), "")
-    
-    amount = next((m for m in data["payment_terms"].get("money", []) if m.strip("$").replace(".", "").isdigit()), None)
-    late_fees = clean_late_fee(data.get("late_payment_penalty", []))
-    late_fee = ", ".join(late_fees)
+    duration = ", ".join(data.get("duration", []))
+    amount = next((m for m in data["payment_terms"].get("money", []) if m.strip("$").isdigit()), None)
+    late_fee = ", ".join(clean_late_fee(data.get("late_payment_penalty", [])))
 
     summary_parts = [
         f"This contract is between {', and '.join(parties)}" if parties else "",
@@ -81,10 +83,9 @@ def generate_summary(data: dict, text: str) -> str:
         f"ending on {end_date}" if end_date else "",
         f"lasting for {duration}" if duration else "",
         f"with a payment of {amount}" if amount else "",
-        f"and a late fee of {late_fee}" if late_fee else ""
+        f"and a {late_fee}" if late_fee else ""
     ]
     return ", ".join(part for part in summary_parts if part).strip(", ")
-
 
 def enhance_extraction(original: dict, text: str) -> dict:
     enhanced = original.copy()
@@ -99,6 +100,9 @@ def enhance_extraction(original: dict, text: str) -> dict:
     for recur in extract_recurring_payments(text):
         extracted["constraints"].append(["recurring", recur, ""])
 
+    for clause in extract_after_constraints(text):
+        extracted["constraints"].append(clause)
+
     late_fees = extract_late_fee(text)
     if late_fees:
         extracted["late_payment_penalty"] = late_fees
@@ -106,6 +110,8 @@ def enhance_extraction(original: dict, text: str) -> dict:
     addresses = extract_property_address(text)
     if addresses:
         extracted["property_address"] = addresses
+
+    extracted["dates"] = list(dict.fromkeys(extracted.get("dates", [])))  # Deduplicate
 
     enhanced["summary"] = generate_summary(extracted, text)
     return enhanced
