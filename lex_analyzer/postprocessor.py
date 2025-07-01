@@ -6,14 +6,14 @@ nlp = spacy.load("en_core_web_sm")
 # Regex patterns
 MONEY_REGEX = re.compile(r"\$[\d,]+(?:\.\d{2})?")
 DURATION_REGEX = re.compile(r"\b(?:\d+|\w+)\s+(?:days?|weeks?|months?|years?|business days?)\b", re.IGNORECASE)
-RECURRING_PATTERN = re.compile(r"\b(?:monthly|annually|weekly|biweekly|quarterly)\b", re.IGNORECASE)
-LATE_FEE_PATTERN = re.compile(r"(?:late fee|penalty).*?\$[\d,]+(?:\.\d{2})?", re.IGNORECASE)
+RECURRING_PATTERN = re.compile(r"\b(monthly|annually|weekly|biweekly|quarterly)\b", re.IGNORECASE)
+LATE_FEE_PATTERN = re.compile(r"(?:late fee|penalty)[^$]{0,20}\$[\d,]+(?:\.\d{2})?", re.IGNORECASE)
 ADDRESS_PATTERN = re.compile(
     r"\b\d{1,5}\s+[\w\s]{2,50}?\s(?:Street|Avenue|Road|Lane|Drive|Boulevard|St\.?|Ave\.?|Rd\.?|Blvd\.?|Dr\.?)\b",
     re.IGNORECASE
 )
 
-# Utility functions
+# Utility Functions
 def clean_money(text: str) -> str:
     return text.rstrip(",. ").replace(",", "")
 
@@ -61,7 +61,7 @@ def find_end_date(text: str, dates: list) -> str:
     return dates[-1] if dates else ""
 
 def generate_summary(data: dict, text: str) -> str:
-    parties = data["parties"]
+    parties = data.get("parties", [])
     address = data.get("property_address", [])
     start_date = find_start_date(text, data.get("dates", []))
     end_date = find_end_date(text, data.get("dates", []))
