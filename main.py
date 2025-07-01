@@ -16,7 +16,8 @@ from lexnlp.extract.en.constraints import get_constraints
 from lexnlp.extract.en.citations import get_citations
 
 from lex_analyzer.postprocessor import enhance_extraction
-from lex_analyzer.classifier import detect_contract_type  # if using auto type detection
+from lex_analyzer.classifier import detect_contract_type
+from lex_analyzer.summary import generate_contract_summary  # ✅ NEW
 
 nltk.download("punkt")
 nltk.download("averaged_perceptron_tagger")
@@ -35,7 +36,7 @@ def analyze_contract(data: TextInput):
     base_output = {
         "contract_type": detect_contract_type(text),
         "extracted_data": {
-            "parties": [],  # LexNLP doesn't extract names well
+            "parties": [],
             "payment_terms": {
                 "money": [str(m) for m in get_money(text)],
                 "percents": [str(p) for p in get_percents(text)],
@@ -51,4 +52,9 @@ def analyze_contract(data: TextInput):
 
     # Apply regex + spaCy post-processing
     enhanced = enhance_extraction(base_output, text)
+
+    # ✅ Add contract summary
+    summary = generate_contract_summary(enhanced["extracted_data"])
+    enhanced["summary"] = summary
+
     return enhanced
