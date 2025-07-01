@@ -61,13 +61,18 @@ def find_end_date(text: str, dates: list) -> str:
     return dates[-1] if dates else ""
 
 def generate_summary(data: dict, text: str) -> str:
-    parties = data.get("parties", [])
+    parties = data["parties"]
     address = data.get("property_address", [])
     start_date = find_start_date(text, data.get("dates", []))
     end_date = find_end_date(text, data.get("dates", []))
-    duration = ", ".join(data.get("duration", []))
-    amount = next((m for m in data["payment_terms"].get("money", []) if m.strip("$").isdigit()), None)
-    late_fee = ", ".join(clean_late_fee(data.get("late_payment_penalty", [])))
+    
+    # Filter out noisy durations
+    raw_durations = data.get("duration", [])
+    duration = next((d for d in raw_durations if re.search(r"\b\d+\s+months?\b", d, re.IGNORECASE)), "")
+    
+    amount = next((m for m in data["payment_terms"].get("money", []) if m.strip("$").replace(".", "").isdigit()), None)
+    late_fees = clean_late_fee(data.get("late_payment_penalty", []))
+    late_fee = ", ".join(late_fees)
 
     summary_parts = [
         f"This contract is between {', and '.join(parties)}" if parties else "",
@@ -79,6 +84,7 @@ def generate_summary(data: dict, text: str) -> str:
         f"and a late fee of {late_fee}" if late_fee else ""
     ]
     return ", ".join(part for part in summary_parts if part).strip(", ")
+
 
 def enhance_extraction(original: dict, text: str) -> dict:
     enhanced = original.copy()
